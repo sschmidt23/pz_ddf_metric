@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import photerr
 import pandas as pd
 from rail.estimation.algos.simpleSOM import Inform_SimpleSOMSummarizer, SimpleSOMSummarizer
-from rail.estimation.algos.knnpz import Inform_KNearNeighPDF
+from rail.estimation.algos.knnpz import Inform_KNearNeighPDF, KNearNeighPDF
 
 def pixel_from_radec(ra, dec, nside=64):
     theta = np.pi/180.*(90.-dec)
@@ -115,6 +115,29 @@ class PZDDFBinsMetric(object):
                        alias="knnModel", mag_limits=maglims)
         train_knn = Inform_KNearNeighPDF.make_stage(name="train_knn", **knndict)
         train_knn.inform(train_file)
+
+    def make_test_file(self):
+        """make test file for a small set of DC2 data,
+        use the median depth from WFD pixels to set the
+        magnitude errors
+        """
+        testfile = "/global/cfs/cdirs/lsst/groups/PZ/users/sschmidt/DDFSTUFF/three_hpix_9044_9301_10070_subset_for_wfd.pq"
+        wfd_m5vals = np.array(np.median(self.coadd_depths), dtype=float)
+        for i, filt in enumerate(self.filternames):
+                m5dict[f"{filt}"] = float(wfd_m5vals[i])
+        #  read in the wfd truth data
+        rawdata = pd.read_parquet(testfile)
+        make_errs = pz_ddf_errors(rawdata, m5dict, 71)
+        df = make_errs.run()
+
+        #  replace non-detections
+        for band, lim in zip(self.bands, wfd_m5vals):
+            onesig = lim + 1.747425  # one sigma is five sigma + 1.747425
+            #mask = np.isinf(trainfile['u'])
+            df.loc[np.isinf(df[f'{band}'])] = 99.0
+            df.loc[np.isinf(df[f'{band}_err'])] = onesig
+        
+        return df
         
     def make_training_file(self):
         """make training file for vvds, cosmos, and deep2
@@ -155,6 +178,14 @@ class PZDDFBinsMetric(object):
             else:
                 tmpdf = make_errs.run()
                 df = pd.concat([df, tmpdf])
+
+        #  replace non-detections
+        for band, lim in zip(self.bands, m5vals):
+            onesig = lim + 1.747425  # one sigma is five sigma + 1.747425
+            #mask = np.isinf(trainfile['u'])
+            df.loc[np.isinf(df[f'{band}'])] = 99.0
+            df.loc[np.isinf(df[f'{band}_err'])] = onesig
+
         return df
             
 class pz_ddf_errors(object):
