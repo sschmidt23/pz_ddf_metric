@@ -93,7 +93,7 @@ class PZDDFBinsMetric(object):
         self.bands = bands
         self.filternames = bands
 
-    def run(self, train_file):
+    def run(self, train_file, test_file):
 
         
         # Make the training file
@@ -115,6 +115,16 @@ class PZDDFBinsMetric(object):
                        alias="knnModel", mag_limits=maglims)
         train_knn = Inform_KNearNeighPDF.make_stage(name="train_knn", **knndict)
         train_knn.inform(train_file)
+        testknn_dict = dict(column_names=self.bands, ref_column_name='i',
+                            model=train_knn.get_handle("model"),
+                            alias="knntest", mag_limits=maglims,
+                            hdf5_groupname='', chunk_size=5000)
+
+        test_knn = KNearNeighPDF.make_stage(name="estimate_knn", **testknn_dict)
+
+        knnens = test_knn.estimate(test_file)
+        self.knnpdfs = knnens
+
 
     def make_test_file(self):
         """make test file for a small set of DC2 data,
@@ -122,7 +132,13 @@ class PZDDFBinsMetric(object):
         magnitude errors
         """
         testfile = "/global/cfs/cdirs/lsst/groups/PZ/users/sschmidt/DDFSTUFF/three_hpix_9044_9301_10070_subset_for_wfd.pq"
-        wfd_m5vals = np.array(np.median(self.coadd_depths), dtype=float)
+        m5mask = np.zeros(len(self.coadd_depths), dtype=bool)
+        for i, xm5 in enumerate(self.coadd_depths):
+            if type(xm5) == list:
+                m5mask[i] = 1
+        tmpm5vals = self.coadd_depths[m5mask]
+        wfd_m5vals = np.array(np.median(tmpm5vals), dtype=float)
+        m5dict = {}
         for i, filt in enumerate(self.filternames):
                 m5dict[f"{filt}"] = float(wfd_m5vals[i])
         #  read in the wfd truth data
@@ -136,7 +152,6 @@ class PZDDFBinsMetric(object):
             #mask = np.isinf(trainfile['u'])
             df.loc[np.isinf(df[f'{band}'])] = 99.0
             df.loc[np.isinf(df[f'{band}_err'])] = onesig
-        
         return df
         
     def make_training_file(self):
@@ -185,7 +200,6 @@ class PZDDFBinsMetric(object):
             #mask = np.isinf(trainfile['u'])
             df.loc[np.isinf(df[f'{band}'])] = 99.0
             df.loc[np.isinf(df[f'{band}_err'])] = onesig
-
         return df
             
 class pz_ddf_errors(object):
