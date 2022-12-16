@@ -10,6 +10,9 @@ import photerr
 import pandas as pd
 from rail.estimation.algos.simpleSOM import Inform_SimpleSOMSummarizer, SimpleSOMSummarizer
 from rail.estimation.algos.knnpz import Inform_KNearNeighPDF, KNearNeighPDF
+from rail.core.stage import RailStage
+from rail.core.data import TableHandle
+
 
 def pixel_from_radec(ra, dec, nside=64):
     theta = np.pi/180.*(90.-dec)
@@ -93,14 +96,21 @@ class PZDDFBinsMetric(object):
         self.bands = bands
         self.filternames = bands
 
-    def run(self, train_file, test_file):
+    def run(self, train_file, test_file, Nbins):
 
+        if not isinstance(Nbins, int):
+            raise ValueError("Nbins must be an integer")
+
+        DS = RailStage.data_store
+        DS.__class__.allow_overwrite = True
         
         # Make the training file
         #train_file = self.make_training_file(coadd_depths)
         
         # train SOM with training data
-        
+
+        # add data to datastore
+        test_data = DS.add_data("test_data", test_file, TableHandle)
         
         maglims = dict(u=27.79, g=29.04, r=29.06, i=28.62, z=27.98, y=27.05)
         som_dict = dict(usecols=self.bands, ref_column_name='i', mag_limits=maglims,
@@ -122,9 +132,23 @@ class PZDDFBinsMetric(object):
 
         test_knn = KNearNeighPDF.make_stage(name="estimate_knn", **testknn_dict)
 
-        knnens = test_knn.estimate(test_file)
+        knnens = test_knn.estimate(test_data)
         self.knnpdfs = knnens
 
+        # use zmode to break into bins
+        zb = knnens.data.ancil['zmode'].flatten()
+
+        ## remove zb<0.3
+        #lowzmask = (zb<0.3)
+        #goodzb = zb[mask]
+        ## break into N bins
+        #binidxs = np.argsort(goodzb)
+        #numgood = len(goodzb)
+        #numperbin = numgood//Nbins
+        #for i in range(Nbins):
+        #    binmask = np.logical_and(bindixs > i * numperbin,
+        #                             bindixs<=(i + 1) * numperbin)
+            
 
     def make_test_file(self):
         """make test file for a small set of DC2 data,
