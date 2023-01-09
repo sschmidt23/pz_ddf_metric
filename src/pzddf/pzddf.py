@@ -12,6 +12,7 @@ from rail.estimation.algos.simpleSOM import Inform_SimpleSOMSummarizer, SimpleSO
 from rail.estimation.algos.knnpz import Inform_KNearNeighPDF, KNearNeighPDF
 from rail.core.stage import RailStage
 from rail.core.data import TableHandle
+from rail.evaluation.metrics.pointestimates import PointStatsEz, PointSigmaIQR, PointBias, PointOutlierRate
 
 
 def pixel_from_radec(ra, dec, nside=64):
@@ -135,9 +136,20 @@ class PZDDFBinsMetric(object):
         knnens = test_knn.estimate(test_data)
         self.knnpdfs = knnens
 
-        # use zmode to break into bins
+        # calculate global point estimate metric
         zb = knnens.data.ancil['zmode'].flatten()
+        truez = np.array(test_file['redshift'])
+        knnwidth = PointSigmaIQR(zb, truez)
+        self.knnsigma = knnwidth.evaluate()
+        knnbi = PointBias(zb, truez)
+        self.knnbias = knnbi.evaluate()
+        knnout = PointOutlierRate(zb, truez)
+        self.knnoutrate = knnout.evaluate()
+        print(f"sigIQR: {self.knnsigma}\nbias: {self.knnbias}\nout rate: {self.knnoutrate}")
 
+        # break into bins based on zb and calculate SOM N(z) estimates
+        # for each bin
+        
         ## remove zb<0.3
         #lowzmask = (zb<0.3)
         #goodzb = zb[mask]
@@ -201,7 +213,8 @@ class PZDDFBinsMetric(object):
         # radict = {'cosmos': cosmos_ra, 'deep2': deep2f3_ra, 'vvds': vvds_f2_ra}
         # decdict = {'cosmos': cosmos_dec, 'deep2': deep2f3_dec, 'vvds': vvds_f2_dec}
         pixeldict = {'cosmos': cosmos_pix, 'deep2': deep2_pix, 'vvds': vvds_pix}
-        surveys = ['cosmos', 'deep2', 'vvds']
+        #surveys = ['cosmos', 'deep2', 'vvds']
+        surveys = ['cosmos', 'deep2']
         surveym5dict = {}
         df = None
         for survey in surveys:
