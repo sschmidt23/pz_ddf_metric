@@ -1,11 +1,11 @@
 import os
 if os.environ.get('RUBIN_SIM_DATA_DIR') is None:
-    os.environ["RUBIN_SIM_DATA_DIR"]="/global/cfs/cdirs/lsst/groups/PZ/RUBIN_SIM_DATA"
-import rubin_sim
+    os.environ["RUBIN_SIM_DATA_DIR"] = "/global/cfs/cdirs/lsst/groups/PZ/RUBIN_SIM_DATA"
+# import rubin_sim
 from rubin_sim import maf
 import numpy as np
 import healpy
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import photerr
 import pandas as pd
 from rail.estimation.algos.simpleSOM import Inform_SimpleSOMSummarizer, SimpleSOMSummarizer
@@ -16,10 +16,11 @@ from rail.evaluation.metrics.pointestimates import PointStatsEz, PointSigmaIQR, 
 
 
 def pixel_from_radec(ra, dec, nside=64):
-    theta = np.pi/180.*(90.-dec)
-    phi = np.pi/180.*ra
+    theta = np.pi / 180. * (90. - dec)
+    phi = np.pi / 180. * ra
     pix = healpy.ang2pix(nside, theta, phi)
     return pix
+
 
 class PZExgalDepths(maf.metrics.BaseMetric):
 
@@ -31,9 +32,9 @@ class PZExgalDepths(maf.metrics.BaseMetric):
      i-band depth < i_lim_mag
     Such HEALpix would likely not be included in cosmological analyses.
     """
-    
+
     def __init__(self, m5Col='fiveSigmaDepth', units='mag', maps=['DustMap'],
-                 wavelen_min=None , wavelen_max=None , wavelen_step=1., filterCol='filter',
+                 wavelen_min=None, wavelen_max=None, wavelen_step=1., filterCol='filter',
                  nfilters_limit=6, implement_depth_ebv_cut=False, i_lim_mag=26.0, **kwargs):
         self.filternames = ['u', 'g', 'r', 'i', 'z', 'y']
         self.m5Col = m5Col
@@ -45,12 +46,12 @@ class PZExgalDepths(maf.metrics.BaseMetric):
 
         ### set up for i-band extincted coadded depth
         if self.implement_depth_ebv_cut:
-            self.coadd_iband_with_dust = maf.ExgalM5(lsstFilter='i',m5Col=self.m5Col, units=units,**kwargs)
+            self.coadd_iband_with_dust = maf.ExgalM5(lsstFilter='i', m5Col=self.m5Col, units=units, **kwargs)
 
         super(PZExgalDepths, self).__init__(col=[self.m5Col, self.filterCol], maps=maps, units=units,
                                             **kwargs)
         self.metricDtype = 'object'
-        
+
     def run(self, dataslice, slicePoint=None):
 
         # First, find the coadd depths in each healpix pixel
@@ -59,7 +60,7 @@ class PZExgalDepths(maf.metrics.BaseMetric):
         for filtername in self.filternames:
             in_filt = np.where(dataslice[self.filterCol] == filtername)[0]
             if len(in_filt) > 0:
-                coadd_depths.append(self.coaddSimple.run(dataslice[in_filt]))               
+                coadd_depths.append(self.coaddSimple.run(dataslice[in_filt]))
                 nfilters += 1
             else:
                 coadd_depths.append(self.badval)
@@ -74,13 +75,13 @@ class PZExgalDepths(maf.metrics.BaseMetric):
         ### figure out the conditions with the number of filters in which we want coverage
         ###  a field considered for cosmology will have coverage in all 6 filters
         if self.nfilters_limit == 6:
-            discard_condition = (nfilters != 6) 
+            discard_condition = (nfilters != 6)
         else:
             discard_condition = (nfilters <= self.nfilters_limit)
 
         ### now incorporaate depth + ebv cuts if needed
         if self.implement_depth_ebv_cut:
-            discard_condition = discard_condition or (ebv>0.2) or (ext_iband_coadd<self.i_lim_mag)
+            discard_condition = discard_condition or (ebv > 0.2) or (ext_iband_coadd < self.i_lim_mag)
 
         ### mask the data point if dicard_condition is true
         if discard_condition:
@@ -114,12 +115,16 @@ class PZDDFBinsMetric(object):
 
         # set some defaults
         if bands is None:
-            bands = ['u','g','r','i','z','y']
+            bands = ['u', 'g', 'r', 'i', 'z', 'y']
+            print(f"using defauilt bands {bands}")
         if surveylist is None:
+            print(f"using default list {surveylist}")
             surveylist = ['cosmos', 'deep2', 'vvds']
         if filedict is None:
+            print(f"using default filedict {filedict}")
             filedict = default_filedict
         if surveyradec is None:
+            print(f"using default ra decs {default_radecdict}")
             radecdict = default_radecdict
         self.coadd_depths = coadd_depths
         self.bands = bands
@@ -135,15 +140,15 @@ class PZDDFBinsMetric(object):
 
         DS = RailStage.data_store
         DS.__class__.allow_overwrite = True
-        
+
         # Make the training file
-        #train_file = self.make_training_file(coadd_depths)
-        
+        # train_file = self.make_training_file(coadd_depths)
+
         # train SOM with training data
 
         # add data to datastore
         test_data = DS.add_data("test_data", test_file, TableHandle)
-        
+
         maglims = dict(u=27.79, g=29.04, r=29.06, i=28.62, z=27.98, y=27.05)
         som_dict = dict(usecols=self.bands, ref_column_name='i', mag_limits=maglims,
                         som_sigma=9.0, model="SOM_model.pkl", seed=87,
@@ -180,18 +185,17 @@ class PZDDFBinsMetric(object):
 
         # break into bins based on zb and calculate SOM N(z) estimates
         # for each bin
-        
+
         ## remove zb<0.3
-        #lowzmask = (zb<0.3)
-        #goodzb = zb[mask]
+        # lowzmask = (zb<0.3)
+        # goodzb = zb[mask]
         ## break into N bins
-        #binidxs = np.argsort(goodzb)
-        #numgood = len(goodzb)
-        #numperbin = numgood//Nbins
-        #for i in range(Nbins):
+        # binidxs = np.argsort(goodzb)
+        # numgood = len(goodzb)
+        # numperbin = numgood//Nbins
+        # for i in range(Nbins):
         #    binmask = np.logical_and(bindixs > i * numperbin,
         #                             bindixs<=(i + 1) * numperbin)
-            
 
     def make_test_file(self):
         """make test file for a small set of DC2 data,
@@ -207,7 +211,7 @@ class PZDDFBinsMetric(object):
         wfd_m5vals = np.array(np.median(tmpm5vals), dtype=float)
         m5dict = {}
         for i, filt in enumerate(self.filternames):
-                m5dict[f"{filt}"] = float(wfd_m5vals[i])
+            m5dict[f"{filt}"] = float(wfd_m5vals[i])
         #  read in the wfd truth data
         rawdata = pd.read_parquet(testfile)
         make_errs = pz_ddf_errors(rawdata, m5dict, 71)
@@ -216,11 +220,11 @@ class PZDDFBinsMetric(object):
         #  replace non-detections
         for band, lim in zip(self.bands, wfd_m5vals):
             onesig = lim + 1.747425  # one sigma is five sigma + 1.747425
-            #mask = np.isinf(trainfile['u'])
+            # mask = np.isinf(trainfile['u'])
             df.loc[np.isinf(df[f'{band}'])] = 99.0
             df.loc[np.isinf(df[f'{band}_err'])] = onesig
         return df
-        
+
     def make_training_file(self):
         """make training file for vvds, cosmos, and deep2
         """
@@ -237,26 +241,26 @@ class PZDDFBinsMetric(object):
         #            'deep2': "/global/cfs/cdirs/lsst/groups/PZ/users/sschmidt/DDFSTUFF/MOCK_DEEP2.pq",
         #            'vvds': "/global/cfs/cdirs/lsst/groups/PZ/users/sschmidt/DDFSTUFF/MOCK_VVDS.pq"
         #            }
-        
-        #cosmos_pix = pixel_from_radec(cosmos_ra, cosmos_dec, 64)
-        #deep2_pix = pixel_from_radec(deep2f3_ra, deep2f3_dec, 64)
-        #vvds_pix = pixel_from_radec(vvds_f2_ra, vvds_f2_dec, 64)
-        #pixdict = {'cosmos': cosmos_pix, 'deep2': deep2_pix, 'vvds': vvds_pix}
+
+        # cosmos_pix = pixel_from_radec(cosmos_ra, cosmos_dec, 64)
+        # deep2_pix = pixel_from_radec(deep2f3_ra, deep2f3_dec, 64)
+        # vvds_pix = pixel_from_radec(vvds_f2_ra, vvds_f2_dec, 64)
+        # pixdict = {'cosmos': cosmos_pix, 'deep2': deep2_pix, 'vvds': vvds_pix}
         # radict = {'cosmos': cosmos_ra, 'deep2': deep2f3_ra, 'vvds': vvds_f2_ra}
         # decdict = {'cosmos': cosmos_dec, 'deep2': deep2f3_dec, 'vvds': vvds_f2_dec}
-        #pixeldict = {'cosmos': cosmos_pix, 'deep2': deep2_pix, 'vvds': vvds_pix}
-        #surveys = ['cosmos', 'deep2', 'vvds']
-        #surveys = ['cosmos', 'deep2']
-        surveym5dict = {}
+        # pixeldict = {'cosmos': cosmos_pix, 'deep2': deep2_pix, 'vvds': vvds_pix}
+        # surveys = ['cosmos', 'deep2', 'vvds']
+        # surveys = ['cosmos', 'deep2']
+        # surveym5dict = {}
         df = None
         for survey in self.surveylist:
             tmpra, tmpdec = self.radecdict[survey]
             survey_pixel = pixel_from_radec(tmpra, tmpdec, 64)
-            m5vals = np.array(self.coadd_depths[survey_pixel], dtype=float) # needed because photerr was complaining about float64! 
+            m5vals = np.array(self.coadd_depths[survey_pixel], dtype=float)  # needed because photerr was complaining about float64!
             m5dict = {}
             for i, filt in enumerate(self.filternames):
                 m5dict[f"{filt}"] = float(m5vals[i])
-            #surveym5dict[f'{survey}'] = m5dict
+            # surveym5dict[f'{survey}'] = m5dict
             rawdata = pd.read_parquet(self.filedict[survey])
             make_errs = pz_ddf_errors(rawdata, m5dict, 9192)
             if df is None:
@@ -268,11 +272,12 @@ class PZDDFBinsMetric(object):
         #  replace non-detections
         for band, lim in zip(self.bands, m5vals):
             onesig = lim + 1.747425  # one sigma is five sigma + 1.747425
-            #mask = np.isinf(trainfile['u'])
+            # mask = np.isinf(trainfile['u'])
             df.loc[np.isinf(df[f'{band}'])] = 99.0
             df.loc[np.isinf(df[f'{band}_err'])] = onesig
         return df
-            
+
+
 class pz_ddf_errors(object):
     """quick class to make photometric errors for the DDF datasets
     """
@@ -301,7 +306,7 @@ class pz_ddf_errors(object):
 
             """
         numvis = dict(u=1, g=1, r=1, i=1, z=1, y=1)
-        
+
         errmod = photerr.LsstErrorModel(m5=self.m5dict, nVisYr=numvis, nYrObs=1)
         newmags = errmod(self.data, random_state=self.seed)
         return newmags
