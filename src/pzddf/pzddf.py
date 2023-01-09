@@ -92,10 +92,41 @@ class PZExgalDepths(maf.metrics.BaseMetric):
 
 class PZDDFBinsMetric(object):
 
-    def __init__(self, coadd_depths, bands):
+    def __init__(self, coadd_depths, bands=None, surveylist=None, filedict=None, surveyradec=None):
+        """init funciton for the bins metric
+        takes in the following
+        Params
+        ------
+        coadd_depths (array): array of floats with the m5 values in each band
+        bands (array): array of strings with the band names
+        surveylist (list): list of strings with the names of the specz surveys
+        filedict (dict): dictionary containing the same surveys of surveylist as keys
+          and the file paths to the parquet files of the mock data for each survey as
+          the values
+        surveradec (dict): dictionary containing the same surveys of surveylist as keys
+          and ra,dec pairs for each survey as the values
+        """
+        default_filedict = {'cosmos': "/global/cfs/cdirs/lsst/groups/PZ/users/sschmidt/DDFSTUFF/MOCK_COSMOS.pq",
+                            'deep2': "/global/cfs/cdirs/lsst/groups/PZ/users/sschmidt/DDFSTUFF/MOCK_DEEP2.pq",
+                            'vvds': "/global/cfs/cdirs/lsst/groups/PZ/users/sschmidt/DDFSTUFF/MOCK_VVDS.pq"
+                            }
+        default_radecdict = {'cosmos': [150.1, 2.18], 'deep2': [352.5, 0.0], 'vvds': [36.5, -4.5]}
+
+        # set some defaults
+        if bands is None:
+            bands = ['u','g','r','i','z','y']
+        if surveylist is None:
+            surveylist = ['cosmos', 'deep2', 'vvds']
+        if filedict is None:
+            filedict = default_filedict
+        if surveyradec is None:
+            radecdict = default_radecdict
         self.coadd_depths = coadd_depths
         self.bands = bands
         self.filternames = bands
+        self.surveylist = surveylist
+        self.filedict = filedict
+        self.radecdict = radecdict
 
     def run(self, train_file, test_file, Nbins):
 
@@ -196,34 +227,37 @@ class PZDDFBinsMetric(object):
         # eyeballed values for the fields, fix later!
         # hardcoding stuff for now, generalize later!
         # NOTE: cosmos and vvds are deep fields, looks like DEEP2 is not!
-        cosmos_ra = 150.1
-        cosmos_dec = 2.18
-        deep2f3_ra = 352.5
-        deep2f3_dec = 0.0
-        vvds_f2_ra = 36.5
-        vvds_f2_dec = -4.5
-        infiledict = {'cosmos': "/global/cfs/cdirs/lsst/groups/PZ/users/sschmidt/DDFSTUFF/MOCK_COSMOS.pq",
-                   'deep2': "/global/cfs/cdirs/lsst/groups/PZ/users/sschmidt/DDFSTUFF/MOCK_DEEP2.pq",
-                   'vvds': "/global/cfs/cdirs/lsst/groups/PZ/users/sschmidt/DDFSTUFF/MOCK_VVDS.pq"
-                   }
-        cosmos_pix = pixel_from_radec(cosmos_ra, cosmos_dec, 64)
-        deep2_pix = pixel_from_radec(deep2f3_ra, deep2f3_dec, 64)
-        vvds_pix = pixel_from_radec(vvds_f2_ra, vvds_f2_dec, 64)
-        pixdict = {'cosmos': cosmos_pix, 'deep2': deep2_pix, 'vvds': vvds_pix}
+        # cosmos_ra = 150.1
+        # cosmos_dec = 2.18
+        # deep2f3_ra = 352.5
+        # deep2f3_dec = 0.0
+        # vvds_f2_ra = 36.5
+        # vvds_f2_dec = -4.5
+        # infiledict = {'cosmos': "/global/cfs/cdirs/lsst/groups/PZ/users/sschmidt/DDFSTUFF/MOCK_COSMOS.pq",
+        #            'deep2': "/global/cfs/cdirs/lsst/groups/PZ/users/sschmidt/DDFSTUFF/MOCK_DEEP2.pq",
+        #            'vvds': "/global/cfs/cdirs/lsst/groups/PZ/users/sschmidt/DDFSTUFF/MOCK_VVDS.pq"
+        #            }
+        
+        #cosmos_pix = pixel_from_radec(cosmos_ra, cosmos_dec, 64)
+        #deep2_pix = pixel_from_radec(deep2f3_ra, deep2f3_dec, 64)
+        #vvds_pix = pixel_from_radec(vvds_f2_ra, vvds_f2_dec, 64)
+        #pixdict = {'cosmos': cosmos_pix, 'deep2': deep2_pix, 'vvds': vvds_pix}
         # radict = {'cosmos': cosmos_ra, 'deep2': deep2f3_ra, 'vvds': vvds_f2_ra}
         # decdict = {'cosmos': cosmos_dec, 'deep2': deep2f3_dec, 'vvds': vvds_f2_dec}
-        pixeldict = {'cosmos': cosmos_pix, 'deep2': deep2_pix, 'vvds': vvds_pix}
+        #pixeldict = {'cosmos': cosmos_pix, 'deep2': deep2_pix, 'vvds': vvds_pix}
         #surveys = ['cosmos', 'deep2', 'vvds']
-        surveys = ['cosmos', 'deep2']
+        #surveys = ['cosmos', 'deep2']
         surveym5dict = {}
         df = None
-        for survey in surveys:
-            m5vals = np.array(self.coadd_depths[pixeldict[survey]], dtype=float) # needed because photerr was complaining about float64! 
+        for survey in self.surveylist:
+            tmpra, tmpdec = self.radecdict[survey]
+            survey_pixel = pixel_from_radec(tmpra, tmpdec, 64)
+            m5vals = np.array(self.coadd_depths[survey_pixel], dtype=float) # needed because photerr was complaining about float64! 
             m5dict = {}
             for i, filt in enumerate(self.filternames):
                 m5dict[f"{filt}"] = float(m5vals[i])
             #surveym5dict[f'{survey}'] = m5dict
-            rawdata = pd.read_parquet(infiledict[survey])
+            rawdata = pd.read_parquet(self.filedict[survey])
             make_errs = pz_ddf_errors(rawdata, m5dict, 9192)
             if df is None:
                 df = make_errs.run()
