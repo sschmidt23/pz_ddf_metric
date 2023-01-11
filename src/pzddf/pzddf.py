@@ -93,7 +93,8 @@ class PZExgalDepths(maf.metrics.BaseMetric):
 
 class PZDDFBinsMetric(object):
 
-    def __init__(self, coadd_depths, bands=None, surveylist=None, filedict=None, surveyradec=None):
+    def __init__(self, coadd_depths, bands=None, surveylist=None, filedict=None, surveyradec=None,
+                 testfilepath=None):
         """init funciton for the bins metric
         takes in the following
         Params
@@ -126,6 +127,9 @@ class PZDDFBinsMetric(object):
         if surveyradec is None:
             radecdict = default_radecdict
             print(f"using default ra decs {default_radecdict}")
+        if testfilepath is None:
+            self.testfilepath = "/global/cfs/cdirs/lsst/groups/PZ/users/sschmidt/DDFSTUFF/three_hpix_9044_9301_10070_subset_for_wfd.pq"
+            print(f"using default test file path of {self.testfilepath}")
         self.coadd_depths = coadd_depths
         self.bands = bands
         self.filternames = bands
@@ -203,7 +207,6 @@ class PZDDFBinsMetric(object):
         use the median depth from WFD pixels to set the
         magnitude errors
         """
-        testfile = "/global/cfs/cdirs/lsst/groups/PZ/users/sschmidt/DDFSTUFF/three_hpix_9044_9301_10070_subset_for_wfd.pq"
         m5mask = np.zeros(len(self.coadd_depths), dtype=bool)
         for i, xm5 in enumerate(self.coadd_depths):
             if type(xm5) == list:
@@ -214,7 +217,7 @@ class PZDDFBinsMetric(object):
         for i, filt in enumerate(self.filternames):
             m5dict[f"{filt}"] = float(wfd_m5vals[i])
         #  read in the wfd truth data
-        rawdata = pd.read_parquet(testfile)
+        rawdata = pd.read_parquet(self.testfilepath)
         make_errs = pz_ddf_errors(rawdata, m5dict, 71)
         df = make_errs.run()
 
