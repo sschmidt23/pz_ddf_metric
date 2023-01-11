@@ -238,21 +238,7 @@ class PZDDFBinsMetric(object):
         # deep2f3_dec = 0.0
         # vvds_f2_ra = 36.5
         # vvds_f2_dec = -4.5
-        # infiledict = {'cosmos': "/global/cfs/cdirs/lsst/groups/PZ/users/sschmidt/DDFSTUFF/MOCK_COSMOS.pq",
-        #            'deep2': "/global/cfs/cdirs/lsst/groups/PZ/users/sschmidt/DDFSTUFF/MOCK_DEEP2.pq",
-        #            'vvds': "/global/cfs/cdirs/lsst/groups/PZ/users/sschmidt/DDFSTUFF/MOCK_VVDS.pq"
-        #            }
 
-        # cosmos_pix = pixel_from_radec(cosmos_ra, cosmos_dec, 64)
-        # deep2_pix = pixel_from_radec(deep2f3_ra, deep2f3_dec, 64)
-        # vvds_pix = pixel_from_radec(vvds_f2_ra, vvds_f2_dec, 64)
-        # pixdict = {'cosmos': cosmos_pix, 'deep2': deep2_pix, 'vvds': vvds_pix}
-        # radict = {'cosmos': cosmos_ra, 'deep2': deep2f3_ra, 'vvds': vvds_f2_ra}
-        # decdict = {'cosmos': cosmos_dec, 'deep2': deep2f3_dec, 'vvds': vvds_f2_dec}
-        # pixeldict = {'cosmos': cosmos_pix, 'deep2': deep2_pix, 'vvds': vvds_pix}
-        # surveys = ['cosmos', 'deep2', 'vvds']
-        # surveys = ['cosmos', 'deep2']
-        # surveym5dict = {}
         df = None
         for survey in self.surveylist:
             tmpra, tmpdec = self.radecdict[survey]
@@ -261,7 +247,6 @@ class PZDDFBinsMetric(object):
             m5dict = {}
             for i, filt in enumerate(self.filternames):
                 m5dict[f"{filt}"] = float(m5vals[i])
-            # surveym5dict[f'{survey}'] = m5dict
             rawdata = pd.read_parquet(self.filedict[survey])
             make_errs = pz_ddf_errors(rawdata, m5dict, 9192)
             if df is None:
@@ -273,7 +258,6 @@ class PZDDFBinsMetric(object):
         #  replace non-detections
         for band, lim in zip(self.bands, m5vals):
             onesig = lim + 1.747425  # one sigma is five sigma + 1.747425
-            # mask = np.isinf(trainfile['u'])
             df.loc[np.isinf(df[f'{band}'])] = 99.0
             df.loc[np.isinf(df[f'{band}_err'])] = onesig
         return df
