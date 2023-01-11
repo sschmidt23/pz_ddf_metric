@@ -118,14 +118,14 @@ class PZDDFBinsMetric(object):
             bands = ['u', 'g', 'r', 'i', 'z', 'y']
             print(f"using defauilt bands {bands}")
         if surveylist is None:
-            print(f"using default list {surveylist}")
             surveylist = ['cosmos', 'deep2', 'vvds']
+            print(f"using default list {surveylist}")
         if filedict is None:
-            print(f"using default filedict {filedict}")
             filedict = default_filedict
+            print(f"using default filedict {filedict}")
         if surveyradec is None:
-            print(f"using default ra decs {default_radecdict}")
             radecdict = default_radecdict
+            print(f"using default ra decs {default_radecdict}")
         self.coadd_depths = coadd_depths
         self.bands = bands
         self.filternames = bands
@@ -142,6 +142,7 @@ class PZDDFBinsMetric(object):
         DS.__class__.allow_overwrite = True
 
         # Make the training file
+        # take this out for now and run separately beforehand and pass in as an arg!
         # train_file = self.make_training_file(coadd_depths)
 
         # train SOM with training data
