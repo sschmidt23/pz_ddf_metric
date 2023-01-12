@@ -94,7 +94,7 @@ class PZExgalDepths(maf.metrics.BaseMetric):
 class PZDDFBinsMetric(object):
 
     def __init__(self, coadd_depths, bands=None, surveylist=None, filedict=None, surveyradec=None,
-                 testfilepath=None):
+                 testfilepath=None, binedges=None):
         """init funciton for the bins metric
         takes in the following
         Params
@@ -113,6 +113,7 @@ class PZDDFBinsMetric(object):
                             'vvds': "/global/cfs/cdirs/lsst/groups/PZ/users/sschmidt/DDFSTUFF/MOCK_VVDS.pq"
                             }
         default_radecdict = {'cosmos': [150.1, 2.18], 'deep2': [352.5, 0.0], 'vvds': [36.5, -4.5]}
+        default_binedges = np.linspace(0.0,3.0,11)
 
         # set some defaults
         if bands is None:
@@ -130,12 +131,22 @@ class PZDDFBinsMetric(object):
         if testfilepath is None:
             self.testfilepath = "/global/cfs/cdirs/lsst/groups/PZ/users/sschmidt/DDFSTUFF/three_hpix_9044_9301_10070_subset_for_wfd.pq"
             print(f"using default test file path of {self.testfilepath}")
+        if binedges is None:
+            self.binedges = default_binedges
+            print(f"using default bin edges {default_binedges}")
         self.coadd_depths = coadd_depths
         self.bands = bands
         self.filternames = bands
         self.surveylist = surveylist
         self.filedict = filedict
         self.radecdict = radecdict
+
+    def make_bins_mask(self):
+        nbins = len(self.binedges) - 1
+        ngal = len(self.zmodes)
+        self.binmasks = np.empty([nbins, ngal], dtype='bool')
+        for i in range(nbins):
+            self.binmasks[i] = np.logical_and(self.zmodes > self.binedges[i], self.zmodes<= self.binedges[i+1])
 
     def run(self, train_file, test_file, Nbins):
 
@@ -179,6 +190,7 @@ class PZDDFBinsMetric(object):
 
         # calculate global point estimate metric
         zb = knnens.data.ancil['zmode'].flatten()
+        self.zmodes = zb
         truez = np.array(test_file['redshift'])
         knnwidth = PointSigmaIQR(zb, truez)
         self.knnsigma = knnwidth.evaluate()
