@@ -214,6 +214,7 @@ class PZDDFBinsMetric(object):
         input = DS.add_data("input", bin_test_data, TableHandle)
         
         bin_som_dict = dict(model="SOM_model.pkl", hdf5_groupname="photometry", spec_groupname="",
+                            usecols=self.bands, mag_limits=maglims, ref_column_name='i',
                             nzbins=51, nsamples=11, single_NZ="bin_SOM_nz.hdf5", uncovered_cell_file="uncovered_cells.hdf5",
                             objid_name='id', cellid_output="output_cellids.hdf5")
         somsumm = SimpleSOMSummarizer.make_stage(name="SOM_bin", **bin_som_dict)
