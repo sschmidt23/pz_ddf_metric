@@ -148,10 +148,8 @@ class PZDDFBinsMetric(object):
         for i in range(nbins):
             self.binmasks[i] = np.logical_and(self.zmodes > self.binedges[i], self.zmodes<= self.binedges[i+1])
 
-    def run(self, train_file, test_file, Nbins):
 
-        if not isinstance(Nbins, int):
-            raise ValueError("Nbins must be an integer")
+    def run(self, train_file, test_file):
 
         DS = RailStage.data_store
         DS.__class__.allow_overwrite = True
@@ -203,16 +201,20 @@ class PZDDFBinsMetric(object):
         # break into bins based on zb and calculate SOM N(z) estimates
         # for each bin
 
-        ## remove zb<0.3
-        # lowzmask = (zb<0.3)
-        # goodzb = zb[mask]
-        ## break into N bins
-        # binidxs = np.argsort(goodzb)
-        # numgood = len(goodzb)
-        # numperbin = numgood//Nbins
-        # for i in range(Nbins):
-        #    binmask = np.logical_and(bindixs > i * numperbin,
-        #                             bindixs<=(i + 1) * numperbin)
+        self.make_bins_mask()
+        # hardcode for now, just look at third bin!
+        xmask = self.binmasks[2]
+        # mask the data to only include the single bin
+        bin_test_data = test_data.data[xmask]
+        binned_data = DS.add_data("binned_data", bin_test_data, TableHandle)
+        
+        
+        bin_som_dict = dict(model="SOM_model.pkl", hdf5_groupname="photometry", spec_groupname="photometry",
+                            nzbins=51, nsamples=11, single_NZ="bin_SOM_nz.hdf5", uncovered_cell_file="uncovered_cells.hdf5",
+                            objid_name='id', cellid_output="output_cellids.hdf5")
+        somsumm = SimpleSOMSummarizer.make_stage(name="SOM_bin", **bin_som_dict)
+        somsumm.summarize(binned_data, train_file)
+
 
     def make_test_file(self):
         """make test file for a small set of DC2 data,
