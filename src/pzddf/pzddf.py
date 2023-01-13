@@ -162,6 +162,7 @@ class PZDDFBinsMetric(object):
 
         # add data to datastore
         test_data = DS.add_data("test_data", test_file, TableHandle)
+        spec_input = DS.add_data("spec_input", train_file, TableHandle)
 
         maglims = dict(u=27.79, g=29.04, r=29.06, i=28.62, z=27.98, y=27.05)
         som_dict = dict(usecols=self.bands, ref_column_name='i', mag_limits=maglims,
