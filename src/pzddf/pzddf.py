@@ -144,10 +144,10 @@ class PZDDFBinsMetric(object):
     def make_bins_mask(self):
         nbins = len(self.binedges) - 1
         ngal = len(self.zmodes)
-        self.binmasks = np.empty([nbins, ngal], dtype='bool')
+        binmasks = np.empty([nbins, ngal], dtype='bool')
         for i in range(nbins):
-            self.binmasks[i] = np.logical_and(self.zmodes > self.binedges[i], self.zmodes<= self.binedges[i+1])
-
+            binmasks[i] = np.logical_and(self.zmodes > self.binedges[i], self.zmodes<= self.binedges[i+1])
+        return binmasks
 
     def run(self, train_file, test_file):
 
@@ -201,11 +201,11 @@ class PZDDFBinsMetric(object):
         # break into bins based on zb and calculate SOM N(z) estimates
         # for each bin
 
-        self.make_bins_mask()
+        all_binmasks = self.make_bins_mask()
         # hardcode for now, just look at third bin!
-        xmask = self.binmasks[2]
+        binmask = all_binmasks[2]
         # mask the data to only include the single bin
-        bin_test_data = test_data.data[xmask]
+        bin_test_data = test_data.data[binmask]
         binned_data = DS.add_data("binned_data", bin_test_data, TableHandle)
         
         
