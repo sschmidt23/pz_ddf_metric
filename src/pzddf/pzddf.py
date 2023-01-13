@@ -211,14 +211,13 @@ class PZDDFBinsMetric(object):
         for key in test_file.keys():
             xbin_test_data[key] = test_file[key][binmask]
         bin_test_data = {'photometry': xbin_test_data}
-        binned_data = DS.add_data("binned_data", bin_test_data, TableHandle)
-        
+        input = DS.add_data("input", bin_test_data, TableHandle)
         
         bin_som_dict = dict(model="SOM_model.pkl", hdf5_groupname="photometry", spec_groupname="",
                             nzbins=51, nsamples=11, single_NZ="bin_SOM_nz.hdf5", uncovered_cell_file="uncovered_cells.hdf5",
                             objid_name='id', cellid_output="output_cellids.hdf5")
         somsumm = SimpleSOMSummarizer.make_stage(name="SOM_bin", **bin_som_dict)
-        somsumm.summarize(binned_data, train_file)
+        somsumm.summarize(input, train_file)
 
 
     def make_test_file(self):
