@@ -208,6 +208,9 @@ class PZDDFBinsMetric(object):
         
         # mask the data to only include the single bin
         xbin_test_data = {}
+        bin_truezs = test_file['redshift'][binmask]
+        true_meanz = np.mean(bin_truezs)
+        print(f"true mean redshift is: {true_meanz}")
         for key in test_file.keys():
             xbin_test_data[key] = test_file[key][binmask]
         bin_test_data = {'photometry': xbin_test_data}
@@ -218,7 +221,10 @@ class PZDDFBinsMetric(object):
                             nzbins=51, nsamples=11, single_NZ="bin_SOM_nz.hdf5", uncovered_cell_file="uncovered_cells.hdf5",
                             objid_name='id', cellid_output="output_cellids.hdf5")
         somsumm = SimpleSOMSummarizer.make_stage(name="SOM_bin", **bin_som_dict)
-        somsumm.summarize(input, train_file)
+        bin_result = somsumm.summarize(input, train_file)
+        means = bin_result.data.mean().flatten()
+        binmean = np.mean(means)
+        print(f"mean redshift of SOM bin is: {binmean}")
 
 
     def make_test_file(self):
