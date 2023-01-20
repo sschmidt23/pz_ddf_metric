@@ -180,7 +180,9 @@ class PZDDFBinsMetric(object):
         testknn_dict = dict(column_names=self.bands, ref_column_name='i',
                             model=train_knn.get_handle("model"),
                             alias="knntest", mag_limits=maglims,
-                            hdf5_groupname='', chunk_size=5000)
+                            hdf5_groupname='', chunk_size=5000,
+                            sigma_grid_min=0.005, sigma_grid_max=0.015,
+                            ngrid_sigma=3, nneigh_min=2, nneigh_max=4)
 
         test_knn = KNearNeighPDF.make_stage(name="estimate_knn", **testknn_dict)
 
@@ -211,7 +213,7 @@ class PZDDFBinsMetric(object):
             xbin_test_data = {}
             
             bin_truezs = test_file['redshift'][binmask]
-            true_meanz[i] = np.mean(bin_truezs)
+            self.true_meanz[i] = np.mean(bin_truezs)
             print(f"true mean redshift is: {self.true_meanz[i]}")
             for key in test_file.keys():
                 xbin_test_data[key] = test_file[key][binmask]
