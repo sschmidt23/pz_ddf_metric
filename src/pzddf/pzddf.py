@@ -152,8 +152,8 @@ class PZDDFObsMetric(maf.metrics.BaseMetric):
         if self.implement_depth_ebv_cut:
             self.coadd_iband_with_dust = maf.ExgalM5(lsstFilter='i', m5Col=self.m5Col, units=units, **kwargs)
 
-        super(PZExgalDepths, self).__init__(col=[self.m5Col, self.filterCol], maps=maps, units=units,
-                                            **kwargs)
+        super(PZDDFObsMetric, self).__init__(col=[self.m5Col, self.filterCol], maps=maps, units=units,
+                                             **kwargs)
         self.metricDtype = 'object'
 
     def run(self, dataslice, slicePoint=None):
