@@ -5,6 +5,8 @@ if os.environ.get('RUBIN_SIM_DATA_DIR') is None:
 from rubin_sim import maf
 import numpy as np
 import healpy
+import tables_io
+
 # import matplotlib.pyplot as plt
 import photerr
 import pandas as pd
@@ -88,7 +90,125 @@ class PZExgalDepths(maf.metrics.BaseMetric):
             ### return a single badval which will mask the datapoint in the bundle.metricValues.
             coadd_depths = self.badval
 
-        return coadd_depths
+
+class PZDDFObsMetric(maf.metrics.BaseMetric):
+
+    """
+    Calculate a metric quantity based on the differences in the mean
+    redshifts of binned quantities determined with KNN PZ algo and
+    SOM summarizer based on a mock set of training data from DDF
+    fields.  The code calls PZDDFBinsMetric class to break data
+    into bins and evaluate mean redshifts, calculate difference
+    between true and estimated bin mean, and returns the absolute
+    sum of those means as a metric.  So, for a given observing
+    strategy, a lower metric score would mean better agreement
+    between bin values.
+    Set HEALpix to badval (i.e., disclude regions with):
+     MW dust extinction E(B-V) > 0.2
+     number of filters < nfilters_limit
+     i-band depth < i_lim_mag
+    Such HEALpix would likely not be included in cosmological analyses.
+    """
+
+    def __init__(self, m5Col='fiveSigmaDepth', units='mag', maps=['DustMap'],
+                 wavelen_min=None, wavelen_max=None, wavelen_step=1., filterCol='filter',
+                 nfilters_limit=6, implement_depth_ebv_cut=False, i_lim_mag=26.0,
+                 bands=None, surveylist=None, filedict=None, surveyradec=None,
+                 testfilepath=None, binedges=None, **kwargs):
+        def_bands = ['u', 'g', 'r', 'i', 'z', 'y']
+        default_filedict = {'cosmos': "/global/cfs/cdirs/lsst/groups/PZ/users/sschmidt/DDFSTUFF/MOCK_COSMOS.pq",
+                            'deep2': "/global/cfs/cdirs/lsst/groups/PZ/users/sschmidt/DDFSTUFF/MOCK_DEEP2.pq",
+                            'vvds': "/global/cfs/cdirs/lsst/groups/PZ/users/sschmidt/DDFSTUFF/MOCK_VVDS.pq"
+                            }
+        default_radecdict = {'cosmos': [150.1, 2.18], 'deep2': [352.5, 0.0], 'vvds': [36.5, -4.5]}
+        default_binedges = np.linspace(0.0,3.0,11)
+        if bands is None:
+            self.filternames = def_bands
+        else:
+            self.filternames = bands
+        if surveylist is None:
+            surveylist = ['cosmos', 'deep2', 'vvds']
+            print(f"using default list {surveylist}")
+        if filedict is None:
+            filedict = default_filedict
+            print(f"using default filedict {filedict}")
+        if surveyradec is None:
+            radecdict = default_radecdict
+            print(f"using default ra decs {default_radecdict}")
+        if testfilepath is None:
+            self.testfilepath = "/global/cfs/cdirs/lsst/groups/PZ/users/sschmidt/DDFSTUFF/three_hpix_9044_9301_10070_subset_for_wfd.pq"
+            print(f"using default test file path of {self.testfilepath}")
+        if binedges is None:
+            self.binedges = default_binedges
+            print(f"using default bin edges {default_binedges}")
+        self.m5Col = m5Col
+        self.filterCol = filterCol
+        self.nfilters_limit = int(nfilters_limit)
+        self.implement_depth_ebv_cut = implement_depth_ebv_cut
+        self.i_lim_mag = i_lim_mag
+        self.coaddSimple = maf.Coaddm5Metric()
+
+        ### set up for i-band extincted coadded depth
+        if self.implement_depth_ebv_cut:
+            self.coadd_iband_with_dust = maf.ExgalM5(lsstFilter='i', m5Col=self.m5Col, units=units, **kwargs)
+
+        super(PZExgalDepths, self).__init__(col=[self.m5Col, self.filterCol], maps=maps, units=units,
+                                            **kwargs)
+        self.metricDtype = 'object'
+
+    def run(self, dataslice, slicePoint=None):
+
+        # First, find the coadd depths in each healpix pixel
+        coadd_depths = []
+        nfilters = 0
+        for filtername in self.filternames:
+            in_filt = np.where(dataslice[self.filterCol] == filtername)[0]
+            if len(in_filt) > 0:
+                coadd_depths.append(self.coaddSimple.run(dataslice[in_filt]))
+                nfilters += 1
+            else:
+                coadd_depths.append(self.badval)
+            
+        if self.implement_depth_ebv_cut:
+            ### find the i-band extincted coadded depth
+            ext_iband_coadd = self.coadd_iband_with_dust.run(dataSlice=dataslice,
+                                                             slicePoint=slicePoint)
+            ### get ebv
+            ebv = slicePoint['ebv']
+
+        ### figure out the conditions with the number of filters in which we want coverage
+        ###  a field considered for cosmology will have coverage in all 6 filters
+        if self.nfilters_limit == 6:
+            discard_condition = (nfilters != 6)
+        else:
+            discard_condition = (nfilters <= self.nfilters_limit)
+
+        ### now incorporaate depth + ebv cuts if needed
+        if self.implement_depth_ebv_cut:
+            discard_condition = discard_condition or (ebv > 0.2) or (ext_iband_coadd < self.i_lim_mag)
+
+        ### mask the data point if dicard_condition is true
+        if discard_condition:
+            ### return a single badval which will mask the datapoint in the bundle.metricValues.
+            coadd_depths = self.badval
+
+        # need to "refill" the bad values on the depths
+        xm5vals = coadd_depths.metricValues
+        m5vals = xm5vals.filled()
+            
+        ### set up the actual metric run
+        binmet = PZDDFBinsMetric(m5vals, self.filternames, surveylist, filedict,
+                                 radecdict, self.testfilepath, self.binedges)
+        trainfile = binmet.make_training_file()
+        # replace some bad u-band values that crop up
+        mask = np.isinf(trainfile['u'])
+        trainfile.loc[np.isinf(trainfile['u'])] = 99.0
+        trainfile.loc[np.isinf(trainfile['u_err'])] = 27.79
+        tfile = tables_io.convert(trainfile, tables_io.types.NUMPY_DICT)
+        testwfdfile = binmet.make_test_file()
+        testxfile = tables_io.convert(testwfdfile, tables_io.types.NUMPY_DICT )
+        knnmet, sommet = binmet.run(tfile, testxfile)
+        return knnmet, sommet
 
 
 class PZDDFBinsMetric(object):
@@ -207,13 +327,18 @@ class PZDDFBinsMetric(object):
         self.all_binmasks = self.make_bins_mask()
         num_bins = len(self.binedges) - 1
         self.true_meanz = np.zeros(num_bins)
+        knn_metric = 0.0
+        som_metric = 0.0
         for i in range(num_bins):
             binmask = self.all_binmasks[i]
             # mask the data to only include the single bin
             xbin_test_data = {}
             
             bin_truezs = test_file['redshift'][binmask]
+            bin_zb = zb[binmask]
             self.true_meanz[i] = np.mean(bin_truezs)
+            meanzb = np.mean(bin_zb)
+            knn_metric += abs(bin_zb - self.true_meanz[i])
             print(f"true mean redshift is: {self.true_meanz[i]}")
             for key in test_file.keys():
                 xbin_test_data[key] = test_file[key][binmask]
@@ -224,12 +349,15 @@ class PZDDFBinsMetric(object):
                                 usecols=self.bands, mag_limits=maglims, ref_column_name='i',
                                 nzbins=51, nsamples=11, single_NZ=f"bin_{i}_SOM_nz.hdf5",
                                 uncovered_cell_file=f"bin_{i}_uncovered_cells.hdf5",
-                                objid_name='id', cellid_output=f"bin_{i}_output_cellids.hdf5", alias=f"bin_{i}")
+                                objid_name='id', cellid_output=f"bin_{i}_output_cellids.hdf5", alias=f"bin_{i}",
+                                output=f"bin_{i}_SOM_bootstraps.hdf5")
             somsumm = SimpleSOMSummarizer.make_stage(name="SOM_bin", **bin_som_dict)
             bin_result = somsumm.summarize(input, train_file)
             means = bin_result.data.mean().flatten()
             binmean = np.mean(means)
             print(f"mean redshift of SOM bin is: {binmean}")
+            som_metric += abs(binman - self.true_meanz[i])
+        return knn_metric, som_metric
 
 
     def make_test_file(self):
