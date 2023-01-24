@@ -193,9 +193,11 @@ class PZDDFObsMetric(maf.metrics.BaseMetric):
             coadd_depths = self.badval
 
         # need to "refill" the bad values on the depths
-        xm5vals = coadd_depths.metricValues
-        m5vals = xm5vals.filled()
-            
+        # or... not?
+        #xm5vals = coadd_depths.metricValues
+        #m5vals = xm5vals.filled()
+        m5vals = coadd_depths
+
         ### set up the actual metric run
         binmet = PZDDFBinsMetric(m5vals, self.filternames, surveylist, filedict,
                                  radecdict, self.testfilepath, self.binedges)
