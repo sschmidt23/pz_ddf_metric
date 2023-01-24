@@ -127,20 +127,29 @@ class PZDDFObsMetric(maf.metrics.BaseMetric):
         else:
             self.filternames = bands
         if surveylist is None:
-            surveylist = ['cosmos', 'deep2', 'vvds']
-            print(f"using default list {surveylist}")
+            self.surveylist = ['cosmos', 'deep2', 'vvds']
+            print(f"using default list {self.surveylist}")
+        else:
+            self.surveylist = surveylist
         if filedict is None:
-            filedict = default_filedict
+            self.filedict = default_filedict
             print(f"using default filedict {filedict}")
+        else:
+            self.filedict = filedict
         if surveyradec is None:
-            radecdict = default_radecdict
+            self.radecdict = default_radecdict
             print(f"using default ra decs {default_radecdict}")
+        else:
+            self.radecdict = surveyradec
         if testfilepath is None:
             self.testfilepath = "/global/cfs/cdirs/lsst/groups/PZ/users/sschmidt/DDFSTUFF/three_hpix_9044_9301_10070_subset_for_wfd.pq"
             print(f"using default test file path of {self.testfilepath}")
+        else:
+            self.testfilepath = testfilepath
         if binedges is None:
             self.binedges = default_binedges
             print(f"using default bin edges {default_binedges}")
+        else: self.binedges = binedges
         self.m5Col = m5Col
         self.filterCol = filterCol
         self.nfilters_limit = int(nfilters_limit)
@@ -197,10 +206,12 @@ class PZDDFObsMetric(maf.metrics.BaseMetric):
         #xm5vals = coadd_depths.metricValues
         #m5vals = xm5vals.filled()
         m5vals = coadd_depths
+        print(f"len of m5 vals is: {len(m5vals)}")
+        print(f"m5vals: {m5vals}")
 
         ### set up the actual metric run
-        binmet = PZDDFBinsMetric(m5vals, self.filternames, surveylist, filedict,
-                                 radecdict, self.testfilepath, self.binedges)
+        binmet = PZDDFBinsMetric(m5vals, self.filternames, self.surveylist, self.filedict,
+                                 self.radecdict, self.testfilepath, self.binedges)
         trainfile = binmet.make_training_file()
         # replace some bad u-band values that crop up
         mask = np.isinf(trainfile['u'])
