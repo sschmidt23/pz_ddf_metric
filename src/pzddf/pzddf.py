@@ -206,7 +206,7 @@ class PZDDFObsMetric(maf.metrics.BaseMetric):
         #xm5vals = coadd_depths.metricValues
         #m5vals = xm5vals.filled()
         m5vals = coadd_depths
-        print(f"len of m5 vals is: {len(m5vals)}")
+        # print(f"len of m5 vals is: {len(m5vals)}")
         print(f"m5vals: {m5vals}")
 
         ### set up the actual metric run
@@ -261,6 +261,8 @@ class PZDDFBinsMetric(object):
         if surveyradec is None:
             radecdict = default_radecdict
             print(f"using default ra decs {default_radecdict}")
+        else:
+            radecdict = surveyradec
         if testfilepath is None:
             self.testfilepath = "/global/cfs/cdirs/lsst/groups/PZ/users/sschmidt/DDFSTUFF/three_hpix_9044_9301_10070_subset_for_wfd.pq"
             print(f"using default test file path of {self.testfilepath}")
